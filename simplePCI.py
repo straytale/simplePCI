@@ -154,6 +154,16 @@ def print_caps(caps):
         name = PCI_CAP_NAMES.get(capid, f"Unknown (0x{capid:02X})")
         print(f"0x{ofs:02X}   0x{capid:02X}  0x{nxt:02X}  {name}")
 
+def write_config(bdf: str, offset: int, data: int):
+    path = bdf_to_sysfs(bdf)
+    if not os.path.exists(path):
+        print(f"Device {bdf} not found.")
+        sys.exit(1)
+    with open(path, "r+b") as f:
+        f.seek(offset)
+        f.write(struct.pack("<I", data))
+    print(f"Wrote 0x{data:08X} to {bdf} @ 0x{offset:02X}")
+
 def main():
     parser = argparse.ArgumentParser(
         description="Simple PCI info dumper",
@@ -163,15 +173,18 @@ def main():
     parser.add_argument("-h", "--help", action="store_true", help="Show help message")
     parser.add_argument("-s", metavar="B:D.F", help="Select PCI device by BDF")
     parser.add_argument("-v", action="store_true", help="Verbose: dump header + capabilities")
+    parser.add_argument("-w", nargs=2, metavar=("OFFSET", "DATA"),
+                        help="Write 32-bit DATA to config OFFSET")
 
     args = parser.parse_args()
 
     if len(sys.argv) == 1 or args.help:
         print(textwrap.dedent("""\
-            Usage: simplePCI.py [-h --help] -s B:D.F -v
+            Usage: simplePCI.py [-h --help] -s B:D.F [-v] [-w offset data]
               -h, --help       Show this help
               -s B:D.F         Select PCI device
               -v               Dump PCI header + Capabilities list
+              -w ofs val       Write 32-bit value to config space
         """))
         sys.exit(0)
 
@@ -179,12 +192,19 @@ def main():
         print("Error: -s B:D.F is required")
         sys.exit(1)
 
+    if args.w:
+        ofs = int(args.w[0], 0)   # auto-parse hex/dec
+        val = int(args.w[1], 0)
+        write_config(args.s, ofs, val)
+        sys.exit(0)
+
     cfg = read_config(args.s)
 
     if args.v:
         print_header(cfg)
         caps = walk_capabilities(cfg)
         print_caps(caps)
+
 
 if __name__ == "__main__":
     main()
