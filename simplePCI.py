@@ -8,9 +8,9 @@ import struct
 PCI_CAP_NAMES = {
     0x01: "Power Management",
     0x02: "AGP",
-    0x03: "VPD",                       # Vital Product Data
+    0x03: "VPD (Vital Product Data)",
     0x04: "Slot Identification",
-    0x05: "MSI",                       # Message Signaled Interrupts
+    0x05: "MSI (Message Signaled Interrupts)",
     0x06: "CompactPCI HotSwap",
     0x07: "PCI-X",
     0x08: "HyperTransport",
@@ -23,7 +23,7 @@ PCI_CAP_NAMES = {
     0x0F: "PCIe Advanced Features",
     0x10: "PCI Express",
     0x11: "MSI-X",
-    0x12: "HyperTransport",
+    0x12: "HyperTransport (Alt)",
     0x13: "Vendor Specific (Alt)",
     0x14: "Bridge Subsystem Vendor ID",
     0x15: "AGP 8x",
@@ -40,7 +40,24 @@ PCI_CAP_NAMES = {
     0x20: "Latency Tolerance Reporting (LTR)",
     0x21: "Secondary PCIe Capability",
     0x22: "Process Address Space ID (PASID)",
+    0x23: "Designated Vendor-Specific Extended Capability (DVSEC)",
+    0x24: "Data Object Exchange (DOE)",
+    0x25: "Integrity and Data Encryption (IDE)",
+    0x26: "Device Serial Number (DSN)",
+    0x27: "Readiness Time Reporting",
+    0x28: "Uncorrectable Error Severity",
+    0x29: "Page Request Interface (PRI)",
+    0x2A: "Scalable I/O Virtualization (SIOV)",
+    0x2B: "Compute Express Link (CXL)",
+    0x2C: "Performance Monitoring",
+    0x2D: "Data Cache Interface",
+    0x2E: "Power Management Hints",
+    0x2F: "Multi-Function Virtual Channel (MFVC)",
+    0x30: "Protocol Multiplexing",
+    0x31: "Compute Express Link 2.0+ (CXL Ext)",
+    0x32: "Vendor-Specific Extended Capability (new)",
 }
+
 
 
 def bdf_to_sysfs(bdf: str) -> str:
