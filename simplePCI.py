@@ -59,73 +59,58 @@ PCI_CAP_NAMES = {
 }
 
 
-
+# ---------------- sysfs helpers ----------------
 def bdf_to_sysfs(bdf: str) -> str:
     if len(bdf.split(":")) == 2:  # e.g. 00:1f.0
         bdf = "0000:" + bdf
     return f"/sys/bus/pci/devices/{bdf}/config"
 
-def read_config(bdf: str) -> bytes:
+
+def read_config(bdf: str, size: int = 256) -> bytes:
     path = bdf_to_sysfs(bdf)
     if not os.path.exists(path):
         print(f"Device {bdf} not found.")
         sys.exit(1)
     with open(path, "rb") as f:
-        return f.read(256)
+        return f.read(size)
 
-def field(ofs, bits, name, attr, val):
-    print(f"0x{ofs:02X}  {bits:<7} {name:<30} {attr:<7} 0x{val:X}")
 
-def print_table_header(title):
-    print(f"\n{title}")
-    print("Offset  Bits    Name                          Attr     Value")
-    print("---------------------------------------------------------------")
+def read_field(bdf: str, offset: int, size: int = 4) -> int:
+    path = bdf_to_sysfs(bdf)
+    with open(path, "rb") as f:
+        f.seek(offset)
+        data = f.read(size)
+    if size == 1:
+        return data[0]
+    elif size == 2:
+        return struct.unpack("<H", data)[0]
+    elif size == 4:
+        return struct.unpack("<I", data)[0]
+    else:
+        raise ValueError("Unsupported size")
 
-def print_header(cfg: bytes):
-    print_table_header("<PCI header>")
-    vendor, device = struct.unpack_from("<HH", cfg, 0x00)
-    field(0x00, "15:0", "Vendor ID", "RO", vendor)
-    field(0x00, "31:16", "Device ID", "RO", device)
 
-    command, status = struct.unpack_from("<HH", cfg, 0x04)
-    field(0x04, "15:0", "Command", "RW", command)
-    field(0x06, "31:16", "Status", "RO/RC", status)
+def write_field(bdf: str, offset: int, value: int, size: int = 4):
+    path = bdf_to_sysfs(bdf)
+    with open(path, "r+b") as f:
+        f.seek(offset)
+        if size == 2:
+            f.write(struct.pack("<H", value))
+        elif size == 4:
+            f.write(struct.pack("<I", value))
+        else:
+            raise ValueError("Unsupported size")
+        f.seek(offset)
+        data = f.read(size)
+    if size == 2:
+        val = struct.unpack("<H", data)[0]
+    else:
+        val = struct.unpack("<I", data)[0]
+    print(f"Wrote 0x{value:0{size*2}X} to {bdf} @ 0x{offset:02X}")
+    print(f"Read  0x{val:0{size*2}X} from {bdf} @ 0x{offset:02X}")
 
-    rev, prog_if, subclass, classcode = struct.unpack_from("<BBBB", cfg, 0x08)
-    field(0x08, "7:0", "Revision ID", "RO", rev)
-    field(0x08, "15:8", "Prog IF", "RO", prog_if)
-    field(0x08, "23:16", "Subclass", "RO", subclass)
-    field(0x08, "31:24", "Class Code", "RO", classcode)
 
-    cacheline, latency, header_type, bist = struct.unpack_from("<BBBB", cfg, 0x0C)
-    field(0x0C, "7:0", "Cache Line Size", "RW", cacheline)
-    field(0x0D, "15:8", "Latency Timer", "RW", latency)
-    field(0x0E, "23:16", "Header Type", "RO", header_type)
-    field(0x0F, "31:24", "BIST", "RO/WO", bist)
-
-    for i in range(6):
-        bar, = struct.unpack_from("<I", cfg, 0x10 + i*4)
-        field(0x10+i*4, "31:0", f"BAR{i}", "RW", bar)
-
-    cardbus, = struct.unpack_from("<I", cfg, 0x28)
-    field(0x28, "31:0", "CardBus CIS Ptr", "RO", cardbus)
-
-    subsys_vendor, subsys_id = struct.unpack_from("<HH", cfg, 0x2C)
-    field(0x2C, "15:0", "Subsystem Vendor ID", "RO", subsys_vendor)
-    field(0x2E, "31:16", "Subsystem ID", "RO", subsys_id)
-
-    exp_rom, = struct.unpack_from("<I", cfg, 0x30)
-    field(0x30, "31:0", "Expansion ROM BAR", "RW", exp_rom)
-
-    cap_ptr = cfg[0x34]
-    field(0x34, "7:0", "Capabilities Ptr", "RO", cap_ptr)
-
-    intr_line, intr_pin, min_gnt, max_lat = struct.unpack_from("<BBBB", cfg, 0x3C)
-    field(0x3C, "7:0", "Interrupt Line", "RW", intr_line)
-    field(0x3D, "15:8", "Interrupt Pin", "RO", intr_pin)
-    field(0x3E, "23:16", "Min_Gnt", "RO", min_gnt)
-    field(0x3F, "31:24", "Max_Lat", "RO", max_lat)
-
+# ---------------- capability walk ----------------
 def walk_capabilities(cfg: bytes):
     _, status = struct.unpack_from("<HH", cfg, 0x04)
     if not (status & 0x10):  # no Capabilities List
@@ -146,24 +131,50 @@ def walk_capabilities(cfg: bytes):
         cap_ptr = next_ptr
     return caps
 
-def print_caps(caps):
-    print("\n<Capabilities List>")
-    print("Offset  ID   Next  Name")
-    print("-----------------------------------------")
+
+def find_pcie_cap(bdf: str) -> int:
+    cfg = read_config(bdf)
+    caps = walk_capabilities(cfg)
     for ofs, capid, nxt in caps:
-        name = PCI_CAP_NAMES.get(capid, f"Unknown (0x{capid:02X})")
-        print(f"0x{ofs:02X}   0x{capid:02X}  0x{nxt:02X}  {name}")
+        if capid == 0x10:  # PCI Express Capability
+            return ofs
+    return None
 
-def write_config(bdf: str, offset: int, data: int):
-    path = bdf_to_sysfs(bdf)
-    if not os.path.exists(path):
-        print(f"Device {bdf} not found.")
-        sys.exit(1)
-    with open(path, "r+b") as f:
-        f.seek(offset)
-        f.write(struct.pack("<I", data))
-    print(f"Wrote 0x{data:08X} to {bdf} @ 0x{offset:02X}")
 
+# ---------------- special ops ----------------
+def link_disable(bdf: str):
+    cap_off = find_pcie_cap(bdf)
+    if not cap_off:
+        print(f"{bdf}: PCIe capability not found")
+        return
+    linkctl = cap_off + 0x10
+    val = read_field(bdf, linkctl, 2)
+    val |= (1 << 4)  # Link Disable
+    write_field(bdf, linkctl, val, 2)
+    print(f"{bdf}: Link disabled")
+
+
+def hot_reset(bdf: str):
+    cmd_off = 0x3E  # Bridge Control
+    val = read_field(bdf, cmd_off, 2)
+    val |= (1 << 6)  # Secondary Bus Reset
+    write_field(bdf, cmd_off, val, 2)
+    print(f"{bdf}: Hot reset triggered")
+
+
+def flr(bdf: str):
+    cap_off = find_pcie_cap(bdf)
+    if not cap_off:
+        print(f"{bdf}: PCIe capability not found")
+        return
+    devctl2 = cap_off + 0x28
+    val = read_field(bdf, devctl2, 2)
+    val |= (1 << 15)  # Function Level Reset
+    write_field(bdf, devctl2, val, 2)
+    print(f"{bdf}: Function Level Reset triggered")
+
+
+# ---------------- CLI ----------------
 def main():
     parser = argparse.ArgumentParser(
         description="Simple PCI info dumper",
@@ -175,16 +186,22 @@ def main():
     parser.add_argument("-v", action="store_true", help="Verbose: dump header + capabilities")
     parser.add_argument("-w", nargs=2, metavar=("OFFSET", "DATA"),
                         help="Write 32-bit DATA to config OFFSET")
+    parser.add_argument("--link-disable", action="store_true", help="Disable PCIe link")
+    parser.add_argument("--hot-reset", action="store_true", help="Trigger Hot Reset (Secondary Bus Reset)")
+    parser.add_argument("--flr", action="store_true", help="Trigger Function Level Reset")
 
     args = parser.parse_args()
 
     if len(sys.argv) == 1 or args.help:
         print(textwrap.dedent("""\
             Usage: simplePCI.py [-h --help] -s B:D.F [-v] [-w offset data]
-              -h, --help       Show this help
-              -s B:D.F         Select PCI device
-              -v               Dump PCI header + Capabilities list
-              -w ofs val       Write 32-bit value to config space
+              -h, --help         Show this help
+              -s B:D.F           Select PCI device
+              -v                 Dump PCI header + Capabilities list
+              -w ofs val         Write 32-bit value to config space
+              --link-disable     Disable PCIe link
+              --hot-reset        Trigger Hot Reset
+              --flr              Trigger Function Level Reset
         """))
         sys.exit(0)
 
@@ -192,18 +209,31 @@ def main():
         print("Error: -s B:D.F is required")
         sys.exit(1)
 
+    bdf = args.s
+
     if args.w:
-        ofs = int(args.w[0], 0)   # auto-parse hex/dec
+        ofs = int(args.w[0], 0)
         val = int(args.w[1], 0)
-        write_config(args.s, ofs, val)
+        write_field(bdf, ofs, val, 4)
         sys.exit(0)
 
-    cfg = read_config(args.s)
+    if args.link_disable:
+        link_disable(bdf)
+        sys.exit(0)
+
+    if args.hot_reset:
+        hot_reset(bdf)
+        sys.exit(0)
+
+    if args.flr:
+        flr(bdf)
+        sys.exit(0)
 
     if args.v:
-        print_header(cfg)
-        caps = walk_capabilities(cfg)
-        print_caps(caps)
+        cfg = read_config(bdf)
+        from pprint import pprint
+        print("Capabilities:")
+        pprint(walk_capabilities(cfg))
 
 
 if __name__ == "__main__":
