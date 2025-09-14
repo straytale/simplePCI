@@ -147,11 +147,25 @@ def link_disable(bdf: str):
     if not cap_off:
         print(f"{bdf}: PCIe capability not found")
         return
+
+    linkcap = cap_off + 0x0C
+    val = read_field(bdf, linkcap, 4)
+    max_width = (val >> 4) & 0x3F
+    if max_width == 0:
+        print(f"{bdf}: Link capability not present, Link Disable not supported")
+        return
+
     linkctl = cap_off + 0x10
     val = read_field(bdf, linkctl, 2)
     val |= (1 << 4)  # Link Disable
     write_field(bdf, linkctl, val, 2)
-    print(f"{bdf}: Link disabled")
+
+    val = read_field(bdf, linkctl, 2)
+    if val & (1 << 4):
+        print(f"{bdf}: Link disable bit set")
+    else:
+        print(f"{bdf}: Link disable not supported (bit4 ignored)")
+
 
 
 def hot_reset(bdf: str):
@@ -169,6 +183,7 @@ def hot_reset(bdf: str):
 
     import time
     time.sleep(1)
+
     val &= ~(1 << 6)
     write_field(bdf, cmd_off, val, 2)
     print(f"{bdf}: Hot reset de-asserted")
