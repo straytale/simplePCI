@@ -248,18 +248,20 @@ def main():
 
     args = parser.parse_args()
 
-    if len(sys.argv) == 1 or args.help: 
-        print(textwrap.dedent("""\ 
-            Usage: simplePCI.py [-h --help] -s B:D.F [-v] [-w offset data] 
-                -h, --help Show this help 
-                -s B:D.F Select PCI device 
-                -v Dump PCI header + Capabilities list 
-                -w ofs val Write 32-bit value to config space 
-                --link-disable Disable PCIe link 
-                --hot-reset Trigger Hot Reset 
-                --flr Trigger Function Level Reset 
-            """)) 
+    if len(sys.argv) == 1 or args.help:
+        print(textwrap.dedent("""\
+            Usage: simplePCI.py [-h --help] -s B:D.F [-v] [-w offset data]
+
+            -h, --help        Show this help
+            -s B:D.F          Select PCI device
+            -v                Dump PCI header + Capabilities list
+            -w ofs val        Write 32-bit value to config space
+            --link-disable    Disable PCIe link
+            --hot-reset       Trigger Hot Reset
+            --flr             Trigger Function Level Reset
+        """))
         sys.exit(0)
+
 
     if not args.s:
         print("Error: -s B:D.F is required")
