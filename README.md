@@ -84,7 +84,7 @@ python3 simplePCI.py -s 03:00.0 --flr
 -   支援讀取 **PCI/PCIe Header 與 Capabilities List**\
 -   可查詢並顯示 **所有標準 PCI Capabilities**\
 -   提供 **RESET操作**：
-    -   Link Disable\
-    -   Hot Reset\
-    -   Function Level Reset (FLR)\
+    -   Link Disable
+    -   Hot Reset
+    -   Function Level Reset (FLR)
 -   支援透過 `-w` 直接修改 **Configuration space**
