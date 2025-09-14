@@ -155,11 +155,24 @@ def link_disable(bdf: str):
 
 
 def hot_reset(bdf: str):
-    cmd_off = 0x3E  # Bridge Control
+    # Header Type (offset 0x0E)
+    header_type = read_field(bdf, 0x0E, 1) & 0x7F
+    if header_type != 1:
+        print(f"{bdf}: Not a PCI-to-PCI bridge (header_type={header_type}), hot reset not supported")
+        return
+
+    cmd_off = 0x3E  # Bridge Control Register (Type 1 only)
     val = read_field(bdf, cmd_off, 2)
     val |= (1 << 6)  # Secondary Bus Reset
     write_field(bdf, cmd_off, val, 2)
-    print(f"{bdf}: Hot reset triggered")
+    print(f"{bdf}: Hot reset asserted")
+
+    import time
+    time.sleep(1)
+    val &= ~(1 << 6)
+    write_field(bdf, cmd_off, val, 2)
+    print(f"{bdf}: Hot reset de-asserted")
+
 
 
 def flr(bdf: str):
@@ -168,9 +181,7 @@ def flr(bdf: str):
         print(f"{bdf}: PCIe capability not found")
         return
     devctl2 = cap_off + 0x28
-    val = read_field(bdf, devctl2, 2)
-    val |= (1 << 15)  # Function Level Reset
-    write_field(bdf, devctl2, val, 2)
+    write_field(bdf, devctl2, 1 << 15, 2)
     print(f"{bdf}: Function Level Reset triggered")
 
 # ---------------------------------------------
