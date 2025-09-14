@@ -237,19 +237,28 @@ def print_caps(caps):
         print(f"0x{ofs:02X}   0x{capid:02X}  0x{nxt:02X}  {name}")
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Simple PCI info dumper",
-        add_help=False,
-        formatter_class=argparse.RawTextHelpFormatter
-    )
-    parser.add_argument("-h", "--help", action="store_true", help="Show help message")
-    parser.add_argument("-s", metavar="B:D.F", help="Select PCI device by BDF")
-    parser.add_argument("-v", action="store_true", help="Verbose: dump header + capabilities")
+    parser = argparse.ArgumentParser( description="Simple PCI info dumper", add_help=False, formatter_class=argparse.RawTextHelpFormatter ) 
+    parser.add_argument("-h", "--help", action="store_true", help="Show help message") 
+    parser.add_argument("-s", metavar="B:D.F", help="Select PCI device by BDF") 
+    parser.add_argument("-v", action="store_true", help="Verbose: dump header + capabilities") 
+    parser.add_argument("-w", nargs=2, metavar=("OFFSET", "DATA"), help="Write 32-bit DATA to config OFFSET") 
+    parser.add_argument("--link-disable", action="store_true", help="Disable PCIe link") 
+    parser.add_argument("--hot-reset", action="store_true", help="Trigger Hot Reset (Secondary Bus Reset)") 
+    parser.add_argument("--flr", action="store_true", help="Trigger Function Level Reset")
 
     args = parser.parse_args()
 
     if len(sys.argv) == 1 or args.help: 
-        print(textwrap.dedent("""\ Usage: simplePCI.py [-h --help] -s B:D.F [-v] [-w offset data] -h, --help Show this help -s B:D.F Select PCI device -v Dump PCI header + Capabilities list -w ofs val Write 32-bit value to config space --link-disable Disable PCIe link --hot-reset Trigger Hot Reset --flr Trigger Function Level Reset """)) 
+        print(textwrap.dedent("""\ 
+            Usage: simplePCI.py [-h --help] -s B:D.F [-v] [-w offset data] 
+                -h, --help Show this help 
+                -s B:D.F Select PCI device 
+                -v Dump PCI header + Capabilities list 
+                -w ofs val Write 32-bit value to config space 
+                --link-disable Disable PCIe link 
+                --hot-reset Trigger Hot Reset 
+                --flr Trigger Function Level Reset 
+            """)) 
         sys.exit(0)
 
     if not args.s:
