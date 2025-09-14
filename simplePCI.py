@@ -174,15 +174,31 @@ def hot_reset(bdf: str):
     print(f"{bdf}: Hot reset de-asserted")
 
 
-
 def flr(bdf: str):
     cap_off = find_pcie_cap(bdf)
     if not cap_off:
         print(f"{bdf}: PCIe capability not found")
         return
+
+    devcap2 = cap_off + 0x24
+    val = read_field(bdf, devcap2, 4)
+    if not (val & (1 << 3)):
+        print(f"{bdf}: FLR not supported (DevCap2[3]=0)")
+        return
+
     devctl2 = cap_off + 0x28
+    # Initiate Function Level Reset (bit15) →  1
     write_field(bdf, devctl2, 1 << 15, 2)
-    print(f"{bdf}: Function Level Reset triggered")
+
+    import time
+    time.sleep(1)
+
+    val = read_field(bdf, devctl2, 2)
+    if val & (1 << 15):
+        print(f"{bdf}: FLR trigger failed (bit did not clear)")
+    else:
+        print(f"{bdf}: Function Level Reset triggered successfully")
+
 
 # ---------------------------------------------
 
