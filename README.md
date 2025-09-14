@@ -72,9 +72,9 @@ python3 simplePCI.py -s 03:00.0 -w 0x04 0x0007
 ### 4. 觸發特殊操作
 
 ``` bash
-python3 simplePCI.py -s 0000:00:1f.0 --link-disable
-python3 simplePCI.py -s 0000:00:1c.0 --hot-reset
-python3 simplePCI.py -s 0000:00:02.0 --flr
+python3 simplePCI.py -s 03:00.0 --link-disable
+python3 simplePCI.py -s 03:00.0 --hot-reset
+python3 simplePCI.py -s 03:00.0 --flr
 ```
 
 ------------------------------------------------------------------------
@@ -82,8 +82,8 @@ python3 simplePCI.py -s 0000:00:02.0 --flr
 ## 📝 功能特色
 
 -   支援讀取 **PCI/PCIe Header 與 Capabilities List**\
--   可查詢並顯示 **所有標準 PCI Capabilities (Gen5 前後)**\
--   提供 **基本測試操作**：
+-   可查詢並顯示 **所有標準 PCI Capabilities**\
+-   提供 **RESET操作**：
     -   Link Disable\
     -   Hot Reset\
     -   Function Level Reset (FLR)\
