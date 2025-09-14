@@ -173,6 +173,66 @@ def flr(bdf: str):
     write_field(bdf, devctl2, val, 2)
     print(f"{bdf}: Function Level Reset triggered")
 
+def field(ofs, bits, name, attr, val):
+    print(f"0x{ofs:02X}  {bits:<7} {name:<30} {attr:<7} 0x{val:X}")
+
+def print_table_header(title):
+    print(f"\n{title}")
+    print("Offset  Bits    Name                          Attr     Value")
+    print("---------------------------------------------------------------")
+
+def print_header(cfg: bytes):
+    print_table_header("<PCI header>")
+    vendor, device = struct.unpack_from("<HH", cfg, 0x00)
+    field(0x00, "15:0", "Vendor ID", "RO", vendor)
+    field(0x00, "31:16", "Device ID", "RO", device)
+
+    command, status = struct.unpack_from("<HH", cfg, 0x04)
+    field(0x04, "15:0", "Command", "RW", command)
+    field(0x06, "31:16", "Status", "RO/RC", status)
+
+    rev, prog_if, subclass, classcode = struct.unpack_from("<BBBB", cfg, 0x08)
+    field(0x08, "7:0", "Revision ID", "RO", rev)
+    field(0x08, "15:8", "Prog IF", "RO", prog_if)
+    field(0x08, "23:16", "Subclass", "RO", subclass)
+    field(0x08, "31:24", "Class Code", "RO", classcode)
+
+    cacheline, latency, header_type, bist = struct.unpack_from("<BBBB", cfg, 0x0C)
+    field(0x0C, "7:0", "Cache Line Size", "RW", cacheline)
+    field(0x0D, "15:8", "Latency Timer", "RW", latency)
+    field(0x0E, "23:16", "Header Type", "RO", header_type)
+    field(0x0F, "31:24", "BIST", "RO/WO", bist)
+
+    for i in range(6):
+        bar, = struct.unpack_from("<I", cfg, 0x10 + i*4)
+        field(0x10+i*4, "31:0", f"BAR{i}", "RW", bar)
+
+    cardbus, = struct.unpack_from("<I", cfg, 0x28)
+    field(0x28, "31:0", "CardBus CIS Ptr", "RO", cardbus)
+
+    subsys_vendor, subsys_id = struct.unpack_from("<HH", cfg, 0x2C)
+    field(0x2C, "15:0", "Subsystem Vendor ID", "RO", subsys_vendor)
+    field(0x2E, "31:16", "Subsystem ID", "RO", subsys_id)
+
+    exp_rom, = struct.unpack_from("<I", cfg, 0x30)
+    field(0x30, "31:0", "Expansion ROM BAR", "RW", exp_rom)
+
+    cap_ptr = cfg[0x34]
+    field(0x34, "7:0", "Capabilities Ptr", "RO", cap_ptr)
+
+    intr_line, intr_pin, min_gnt, max_lat = struct.unpack_from("<BBBB", cfg, 0x3C)
+    field(0x3C, "7:0", "Interrupt Line", "RW", intr_line)
+    field(0x3D, "15:8", "Interrupt Pin", "RO", intr_pin)
+    field(0x3E, "23:16", "Min_Gnt", "RO", min_gnt)
+    field(0x3F, "31:24", "Max_Lat", "RO", max_lat)
+
+def print_caps(caps):
+    print("\n<Capabilities List>")
+    print("Offset  ID   Next  Name")
+    print("-----------------------------------------")
+    for ofs, capid, nxt in caps:
+        name = PCI_CAP_NAMES.get(capid, f"Unknown (0x{capid:02X})")
+        print(f"0x{ofs:02X}   0x{capid:02X}  0x{nxt:02X}  {name}")
 
 # ---------------- CLI ----------------
 def main():
@@ -229,11 +289,12 @@ def main():
         flr(bdf)
         sys.exit(0)
 
+    cfg = read_config(args.s)
+
     if args.v:
-        cfg = read_config(bdf)
-        from pprint import pprint
-        print("Capabilities:")
-        pprint(walk_capabilities(cfg))
+        print_header(cfg)
+        caps = walk_capabilities(cfg)
+        print_caps(caps)
 
 
 if __name__ == "__main__":
