@@ -234,7 +234,6 @@ def print_caps(caps):
         name = PCI_CAP_NAMES.get(capid, f"Unknown (0x{capid:02X})")
         print(f"0x{ofs:02X}   0x{capid:02X}  0x{nxt:02X}  {name}")
 
-# ---------------- CLI ----------------
 def main():
     parser = argparse.ArgumentParser(
         description="Simple PCI info dumper",
@@ -244,24 +243,15 @@ def main():
     parser.add_argument("-h", "--help", action="store_true", help="Show help message")
     parser.add_argument("-s", metavar="B:D.F", help="Select PCI device by BDF")
     parser.add_argument("-v", action="store_true", help="Verbose: dump header + capabilities")
-    parser.add_argument("-w", nargs=2, metavar=("OFFSET", "DATA"),
-                        help="Write 32-bit DATA to config OFFSET")
-    parser.add_argument("--link-disable", action="store_true", help="Disable PCIe link")
-    parser.add_argument("--hot-reset", action="store_true", help="Trigger Hot Reset (Secondary Bus Reset)")
-    parser.add_argument("--flr", action="store_true", help="Trigger Function Level Reset")
 
     args = parser.parse_args()
 
     if len(sys.argv) == 1 or args.help:
         print(textwrap.dedent("""\
-            Usage: simplePCI.py [-h --help] -s B:D.F [-v] [-w offset data]
-              -h, --help         Show this help
-              -s B:D.F           Select PCI device
-              -v                 Dump PCI header + Capabilities list
-              -w ofs val         Write 32-bit value to config space
-              --link-disable     Disable PCIe link
-              --hot-reset        Trigger Hot Reset
-              --flr              Trigger Function Level Reset
+            Usage: simplePCI.py [-h --help] -s B:D.F -v
+              -h, --help       Show this help
+              -s B:D.F         Select PCI device
+              -v               Dump PCI header + Capabilities list
         """))
         sys.exit(0)
 
@@ -269,33 +259,12 @@ def main():
         print("Error: -s B:D.F is required")
         sys.exit(1)
 
-    bdf = args.s
-
-    if args.w:
-        ofs = int(args.w[0], 0)
-        val = int(args.w[1], 0)
-        write_field(bdf, ofs, val, 4)
-        sys.exit(0)
-
-    if args.link_disable:
-        link_disable(bdf)
-        sys.exit(0)
-
-    if args.hot_reset:
-        hot_reset(bdf)
-        sys.exit(0)
-
-    if args.flr:
-        flr(bdf)
-        sys.exit(0)
-
     cfg = read_config(args.s)
 
     if args.v:
         print_header(cfg)
         caps = walk_capabilities(cfg)
         print_caps(caps)
-
 
 if __name__ == "__main__":
     main()
