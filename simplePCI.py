@@ -173,6 +173,8 @@ def flr(bdf: str):
     write_field(bdf, devctl2, val, 2)
     print(f"{bdf}: Function Level Reset triggered")
 
+# ---------------------------------------------
+
 def field(ofs, bits, name, attr, val):
     print(f"0x{ofs:02X}  {bits:<7} {name:<30} {attr:<7} 0x{val:X}")
 
@@ -246,13 +248,8 @@ def main():
 
     args = parser.parse_args()
 
-    if len(sys.argv) == 1 or args.help:
-        print(textwrap.dedent("""\
-            Usage: simplePCI.py [-h --help] -s B:D.F -v
-              -h, --help       Show this help
-              -s B:D.F         Select PCI device
-              -v               Dump PCI header + Capabilities list
-        """))
+    if len(sys.argv) == 1 or args.help: 
+        print(textwrap.dedent("""\ Usage: simplePCI.py [-h --help] -s B:D.F [-v] [-w offset data] -h, --help Show this help -s B:D.F Select PCI device -v Dump PCI header + Capabilities list -w ofs val Write 32-bit value to config space --link-disable Disable PCIe link --hot-reset Trigger Hot Reset --flr Trigger Function Level Reset """)) 
         sys.exit(0)
 
     if not args.s:
@@ -265,6 +262,18 @@ def main():
         print_header(cfg)
         caps = walk_capabilities(cfg)
         print_caps(caps)
+    
+    if args.link_disable: 
+        link_disable(args.s) 
+        sys.exit(0) 
+        
+    if args.hot_reset: 
+        hot_reset(args.s) 
+        sys.exit(0) 
+        
+    if args.flr: 
+        flr(args.s) 
+        sys.exit(0)
 
 if __name__ == "__main__":
     main()
